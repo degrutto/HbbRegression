@@ -1,3 +1,4 @@
+#include "TMath.h"
 #include <TH2.h>
 #include <TStyle.h>
 #include <TCanvas.h>
@@ -34,14 +35,33 @@ double deltaPhi(double phi1, double phi2)
 	while (result <= -PI) result += 2*PI;
 	return result;
 }
+
+float projectionMETOntoJet(float met, float metphi, float jet, float jetphi, bool onlyPositive=true, float threshold=M_PI/4.0)
+{
+  float deltaphi = deltaPhi(metphi, jetphi);
+  float met_dot_jet = met * jet * TMath::Cos(deltaphi);
+  float jetsq = jet * jet;
+  float projection = met_dot_jet / jetsq * jet;
+
+  if (onlyPositive && TMath::Abs(deltaphi) >= threshold)
+    return 0.0;
+  else
+    return projection;
+}
+
+
 void treeForRegression()
 {
-	std::string inputfilename ="/eos/uscms/store/group/lpchbb/HeppyNtuples/V20test/TTJets_TuneCUETP8M1_13TeV-madgraphMLM-pythia8.root";
+  //	std::string inputfilename ="/eos/uscms/store/group/lpchbb/HeppyNtuples/V20test/TTJets_TuneCUETP8M1_13TeV-madgraphMLM-pythia8.root";
+  //        std::string inputfilename ="/afs/cern.ch/user/d/degrutto/eos/cms/store/group/phys_higgs/hbb/ntuples/V20a/user/arizzi/VHBBHeppyV20a/TT_TuneCUETP8M1_13TeV-powheg-pythia8/VHBB_HEPPY_V20a_TT_TuneCUETP8M1_13TeV-powheg-Py8__fall15MAv2-pu25ns15v1_76r2as_v12_ext3-v1/160217_181148/0000/tree_1*.root";
+
+        std::string inputfilename ="/afs/cern.ch/user/d/degrutto/eos/cms/store/group/phys_higgs/hbb/ntuples/H21_genJetPt0/TTJets_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/tree_*.root";
 	TChain *tree=new TChain("tree");
 	tree->Add(inputfilename.c_str());
 	std::cout<<"Opened input file "<<inputfilename<<std::endl;
 	tree->SetBranchAddress("*", 0);
-	float rho;
+	float rho, nPVs;
+	//int nPVs; FIXME//////
 	float met_pt,met_eta,met_phi;
 	float GenJet_wNuPt[15];
 	int          nhJCidx, nhJidx, nJet,nGenBQuarkFromTop;
@@ -49,6 +69,7 @@ void treeForRegression()
 	float      Jet_puId[30],Jet_btagCSV[30],Jet_rawPt[30],Jet_corr[30],Jet_pt[30],Jet_eta[30],Jet_phi[30],Jet_mass[30],Jet_chHEF[30],Jet_neHEF[30],Jet_chEmEF[30],Jet_neEmEF[30],Jet_chMult[30],Jet_leadTrackPt[30],Jet_leptonPt[30],Jet_leptonPtRel[30],Jet_leptonPtRelIn[30],Jet_leptonDeltaR[30],Jet_vtxMass[30],Jet_vtxNtracks[30],Jet_vtxPt[30],Jet_vtx3DSig[30],Jet_vtx3DVal[30],GenBQuarkFromTop_pt[4],GenBQuarkFromTop_eta[4],GenBQuarkFromTop_phi[4],GenBQuarkFromTop_mass[4];
 
 	tree->SetBranchAddress("rho", &rho);
+	tree->SetBranchAddress("nPVs", &nPVs);
 	tree->SetBranchAddress("met_pt", &met_pt);
 	tree->SetBranchAddress("met_eta", &met_eta);
 	tree->SetBranchAddress("met_phi", &met_phi);
@@ -95,11 +116,15 @@ void treeForRegression()
 	Long64_t nentries = tree->GetEntries();
 	std::cout<< " nentries "<<nentries<<std::endl;
 	Long64_t nbytes = 0, nb = 0;
-	TFile *outfile=new TFile("/eos/uscms/store/user/cvernier/ttbar_RegressionPerJet.root", "recreate");
+	//	TFile *outfile=new TFile("/afs/cern.ch/work/d/degrutto/public/MiniAOD/V20/ttbar_RegressionPerJet.root", "RECREATE");
+	//      	TFile *outfile=new TFile("/afs/cern.ch/work/d/degrutto/public/MiniAOD/H21c_genJetPt0/zllhbb125_RegressionPerJet.root", "RECREATE");
+      	TFile *outfile=new TFile("/afs/cern.ch/work/d/degrutto/public/MiniAOD/H21c_genJetPt0/ttbar_RegressionPerJet.root", "RECREATE");
 	int Jet_vtxNtrk;
-	float Jet_mass_,Jet_corr_, Jet_e_, rho_, Jet_pt_,Jet_eta_,Jet_phi_, Jet_leptonPtRel_,Jet_leptonDeltaR_,Jet_leptonPt_,  Jet_leadTrackPt_, Jet_chHEF_, Jet_chEmEF_, Jet_neHEF_, Jet_neEmEF_, Jet_vtx3dL_, Jet_vtx3deL_, Jet_chMult_, Jet_mcPt_, Jet_mcEta_, Jet_mcPhi_, Jet_mcM_,  Jet_csv_, Jet_flavor_,  met_pt_, met_phi_, Jet_mcFlavour_, Jet_puId_, Jet_met_dPhi_, Jet_mcE_, Jet_btagCSV_, Jet_mt_, Jet_vtxMass_, Jet_vtx3dL, Jet_vtx3deL, Jet_vtxPt_, dR_, Jet_mcPtq_;
-	Jet_mass_=-999,Jet_corr_=-999, Jet_e_=-999, Jet_mt_=-999, rho_=-999, Jet_pt_=-999,Jet_eta_=-999,Jet_phi_=-999, Jet_leptonPtRel_=-999,Jet_leptonDeltaR_=-999,Jet_leptonPt_=-999,Jet_leadTrackPt_=-999, Jet_chHEF_=-999, Jet_chEmEF_=-999, Jet_neHEF_=-999, Jet_neEmEF_=-999, Jet_vtx3dL_=-999, Jet_vtx3deL_=-999, Jet_chMult_=-999, Jet_mcPt_=-999, Jet_mcEta_=-999, Jet_mcPhi_=-999, Jet_mcM_=-999,   Jet_csv_=-999, Jet_flavor_=-999,  met_pt_=-999, met_phi_=-999, Jet_btagCSV_=-999, Jet_mcFlavour_=-999,  Jet_puId_=-999 , Jet_met_dPhi_=-999, Jet_mcE_=-999,  Jet_vtxMass_=-999., Jet_vtx3dL=-999., Jet_vtx3deL=-999., Jet_vtxPt_ =-999., Jet_mcPtq_=-999.;
+	float Jet_mass_,Jet_corr_, Jet_e_, rho_, nPVs_ ,  Jet_pt_,Jet_eta_,Jet_phi_, Jet_leptonPtRel_,Jet_leptonDeltaR_,Jet_leptonPt_,  Jet_leadTrackPt_, Jet_chHEF_, Jet_chEmEF_, Jet_neHEF_, Jet_neEmEF_, Jet_vtx3dL_, Jet_vtx3deL_, Jet_chMult_, Jet_mcPt_, Jet_mcEta_, Jet_mcPhi_, Jet_mcM_,  Jet_csv_, Jet_flavor_,  met_pt_, met_phi_, Jet_mcFlavour_, Jet_puId_, Jet_met_dPhi_, Jet_met_proj_, Jet_mcE_, Jet_btagCSV_, Jet_mt_, Jet_vtxMass_, Jet_vtx3dL, Jet_vtx3deL, Jet_vtxPt_, dR_, Jet_mcPtq_;
+	Jet_mass_=-999,Jet_corr_=-999, Jet_e_=-999, Jet_mt_=-999, rho_=-999, Jet_pt_=-999,Jet_eta_=-999,Jet_phi_=-999, Jet_leptonPtRel_=-999,Jet_leptonDeltaR_=-999,Jet_leptonPt_=-999,Jet_leadTrackPt_=-999, Jet_chHEF_=-999, Jet_chEmEF_=-999, Jet_neHEF_=-999, Jet_neEmEF_=-999, Jet_vtx3dL_=-999, Jet_vtx3deL_=-999, Jet_chMult_=-999, Jet_mcPt_=-999, Jet_mcEta_=-999, Jet_mcPhi_=-999, Jet_mcM_=-999,   Jet_csv_=-999, Jet_flavor_=-999,  met_pt_=-999, met_phi_=-999, Jet_btagCSV_=-999, Jet_mcFlavour_=-999,  Jet_puId_=-999 , Jet_met_dPhi_=-999, Jet_met_proj_=-999, Jet_mcE_=-999,  Jet_vtxMass_=-999., Jet_vtx3dL=-999., Jet_vtx3deL=-999., Jet_vtxPt_ =-999., Jet_mcPtq_=-999.;
 	Jet_vtxNtrk= 999;
+	nPVs_= -999 ;
+
 	TTree *outtree = new TTree("tree", "tree");
 
 	outtree->Branch("Jet_vtxNtrk",            &Jet_vtxNtrk ,"Jet_vtxNtrk/I");
@@ -133,12 +158,17 @@ void treeForRegression()
 	outtree->Branch("Jet_leptonPtRel", &Jet_leptonPtRel_ ,"Jet_leptonPtRel_/F"); 
 	outtree->Branch("Jet_leptonDeltaR", &Jet_leptonDeltaR_ ,"Jet_leptonDeltaR_/F"); 
 	outtree->Branch("rho", &rho_ ,"rho_/F");
+	outtree->Branch("nPVs", &nPVs_ ,"nPVs_/F");
 	outtree->Branch("met_pt",  &met_pt_, "met_pt_/F");
 	outtree->Branch("met_phi", &met_phi_, "met_phi_/F");
 	outtree->Branch("Jet_met_dPhi", &Jet_met_dPhi_, "Jet_met_dPhi_/F");
+	outtree->Branch("Jet_met_proj", &Jet_met_proj_, "Jet_met_proj_/F");
 
 	for (Long64_t jentry=0; jentry<nentries;jentry++) {
 		tree->GetEvent(jentry);
+		if (jentry % 2000 == 0)
+		  std::cout << "--- ... Processing event: " << jentry << std::endl;
+
 		for(int i =0 ; i<nJet; i++){
 
 			if(Jet_mcIdx[i]<0 ) continue;
@@ -151,27 +181,29 @@ void treeForRegression()
 			Jet_puId_ = Jet_puId[i];
 			Jet_mass_=Jet_mass[i];
 			Jet_met_dPhi_=deltaPhi(met_phi,Jet_phi[i]);
+			Jet_met_proj_=projectionMETOntoJet(met_pt, met_phi,Jet_pt[i], Jet_phi[i]);
 			met_pt_= met_pt;
 			met_phi_= met_phi;
-			Jet_leptonPtRel_ = TMath::Max(0.,Jet_leptonPtRel[i]);
-			Jet_leptonDeltaR_ = TMath::Max(0.,Jet_leptonDeltaR[i]);
-			Jet_leptonPt_ = TMath::Max(0.,Jet_leptonPt[i]);
+			Jet_leptonPtRel_ = TMath::Max(float(0.),Jet_leptonPtRel[i]);
+			Jet_leptonDeltaR_ = TMath::Max(float(0.),Jet_leptonDeltaR[i]);
+			Jet_leptonPt_ = TMath::Max(float(0.),Jet_leptonPt[i]);
 			Jet_leadTrackPt_ = Jet_leadTrackPt[i];
-			Jet_chHEF_ =  TMath::Min(1.,Jet_chHEF[i]);
-			Jet_chEmEF_=  TMath::Min(1., Jet_chEmEF[i]);
-			Jet_neHEF_=  TMath::Min(1.,Jet_neHEF[i]);
-			Jet_neEmEF_ = TMath::Min(1.,Jet_neEmEF[i]);
+			Jet_chHEF_ =  TMath::Min(float(1.),Jet_chHEF[i]);
+			Jet_chEmEF_=  TMath::Min(float(1.), Jet_chEmEF[i]);
+			Jet_neHEF_=  TMath::Min(float(1.),Jet_neHEF[i]);
+			Jet_neEmEF_ = TMath::Min(float(1.),Jet_neEmEF[i]);
 
 			hJ0.SetPtEtaPhiM(Jet_pt[i],Jet_eta[i],Jet_phi[i],Jet_mass[i]);
 			rho_ = rho;
+			nPVs_ = nPVs;
 			Jet_e_=hJ0.E();
 			Jet_mt_=hJ0.Mt();
 			Jet_chMult_=Jet_chMult[i];
-			Jet_vtx3dL_=TMath::Max(0.,Jet_vtx3DVal[i]);
-			Jet_vtxMass_=TMath::Max(0.,Jet_vtxMass[i]);
-			Jet_vtx3deL_=TMath::Max(0.,Jet_vtx3DSig[i]);
-			Jet_vtxNtrk=TMath::Max(0.,Jet_vtxNtracks[i]);
-			Jet_vtxPt_=TMath::Max(0.,Jet_vtxPt[i]);
+			Jet_vtx3dL_=TMath::Max(float(0.),Jet_vtx3DVal[i]);
+			Jet_vtxMass_=TMath::Max(float(0.),Jet_vtxMass[i]);
+			Jet_vtx3deL_=TMath::Max(float(0.),Jet_vtx3DSig[i]);
+			Jet_vtxNtrk=TMath::Max(float(0.),Jet_vtxNtracks[i]);
+			Jet_vtxPt_=TMath::Max(float(0.),Jet_vtxPt[i]);
 			Jet_mcPt_= GenJet_wNuPt[Jet_mcIdx[i]];
 			dR_ =999;
 			Jet_mcPtq_=-999.;

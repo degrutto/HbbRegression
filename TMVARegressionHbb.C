@@ -36,7 +36,9 @@
 #include "TROOT.h"
 #include "TLorentzVector.h"
 
-#include "TMVARegGui.C"
+#include "TMVA/Config.h"
+
+//#include "TMVARegGui.C"
 
 #if not defined(__CINT__) || defined(__MAKECINT__)
 #include "TMVA/Tools.h"
@@ -121,7 +123,10 @@ void TMVARegressionHbb(  )
 
 
    TMVA::Tools::Instance();
-(TMVA::gConfig().GetIONames()).fWeightFileDir ="weights_ttbar_quark";//zh_quark_noch";
+   //     (TMVA::gConfig().GetIONames()).fWeightFileDir ="weights_zllhbb_pt40";//zh_quark_noch";
+   //  (TMVA::gConfig().GetIONames()).fWeightFileDir ="weights_zllhbb";//zh_quark_noch";
+   // (TMVA::gConfig().GetIONames()).fWeightFileDir ="weights_ttbar_genPtoverPt/";//zh_quark_noch";
+    (TMVA::gConfig().GetIONames()).fWeightFileDir ="weights_ttbar_genPtoverPt_h21_genPt0_v2";//zh_quark_noch";
    // Default MVA methods to be trained + tested
    std::map<std::string,int> Use;
 
@@ -176,7 +181,7 @@ void TMVARegressionHbb(  )
    // --- Here the preparation phase begins
 
    // Create a new root output file
-   TString outfileName( "TMVAReg.root" );
+   TString outfileName( (TMVA::gConfig().GetIONames()).fWeightFileDir +  "/TMVAReg.root" );
    TFile* outputFile = TFile::Open( outfileName, "RECREATE" );
 
    // Create the factory object. Later you can choose the methods
@@ -203,7 +208,8 @@ void TMVARegressionHbb(  )
    //
    factory->AddVariable( "Jet_pt", "Jet_pt", "units", 'F' );
    factory->AddVariable( "Jet_corr", "Jet_corr", "units", 'F' );
-   factory->AddVariable( "rho", "rho", "units", 'F' );
+   //   factory->AddVariable( "rho", "rho", "units", 'F' );
+   factory->AddVariable( "nPVs", "nPVs", "units", 'F' );
    factory->AddVariable( "Jet_eta", "Jet_eta", "units", 'F' );
    factory->AddVariable( "Jet_mt", "Jet_mt", "units", 'F' );
    factory->AddVariable( "Jet_leadTrackPt  ", "Jet_leadTrackPt  ", "units", 'F' );
@@ -211,12 +217,15 @@ void TMVARegressionHbb(  )
    factory->AddVariable( "Jet_leptonPt","Jet_leptonPt","units",'F');
    factory->AddVariable( "Jet_leptonDeltaR","Jet_leptonDeltaR","units",'F');	
 
-
-   //factory->AddVariable( "Jet_chEmEF ", "Jet_chEmEF ", "units", 'F' );
+   //   factory->AddVariable( "Jet_chEmEF ", "Jet_chEmEF ", "units", 'F' );
    //factory->AddVariable( "Jet_chHEF", "Jet_chHEF", "units", 'F' );
-   factory->AddVariable( "Jet_neHEF", "Jet_neHEF", "units", 'F' );	
+   
+   //neHEF+chHEF 
+
+   factory->AddVariable( "Jet_chHEF+Jet_neHEF", "Jet_totHEF" , "units", 'F' );
+   //   factory->AddVariable( "Jet_neHEF", "Jet_neHEF", "units", 'F' );	
    factory->AddVariable( "Jet_neEmEF", "Jet_neEmEF", "units", 'F' );	
-   factory->AddVariable( "Jet_chMult", "Jet_chMult", "units", 'F' );
+   //   factory->AddVariable( "Jet_chMult", "Jet_chMult", "units", 'F' );
    factory->AddVariable( "Jet_vtxPt", "Jet_vtxPt", "units", 'F' );
    factory->AddVariable( "Jet_vtxMass", "Jet_vtxMass", "units", 'F' );
    factory->AddVariable( "Jet_vtx3dL", "Jet_vtx3dL", "units", 'F' );
@@ -227,12 +236,16 @@ void TMVARegressionHbb(  )
 
 
 
-   factory->AddTarget( "Jet_mcPt" ); 
+           factory->AddTarget( "Jet_mcPt/Jet_pt" ); 
+	   //	    factory->AddTarget( "Jet_mcPt" ); 
    
    
 
    
-   TFile * input = new TFile("/eos/uscms/store/user/cvernier/ttbar_RegressionPerJet.root", "read");///eos/uscms/store/user/cvernier/zll_RegressionPerJet.root", "read");
+    //      TFile * input = new TFile("/afs/cern.ch/work/d/degrutto/public/MiniAOD/V20/zllhbb125_RegressionPerJet.root", "read");
+    TFile * input = new TFile("/afs/cern.ch/work/d/degrutto/public/MiniAOD/H21c_genJetPt0/ttbar_RegressionPerJet.root");
+
+//eos/uscms/store/user/cvernier/ttbar_RegressionPerJet.root", "read");///eos/uscms/store/user/cvernier/zll_RegressionPerJet.root", "read");
    TTree *regTree = (TTree*)input->Get("tree");
 
 
@@ -241,7 +254,7 @@ void TMVARegressionHbb(  )
    factory->AddRegressionTree( regTree, regWeight );
 
    //TCut mycut = " Jet_mcPtq>20  && abs(Jet_mcFlavour)==5 &&   Jet_pt>15 && dR <0.35";
-   TCut mycut = " Jet_mcPt>20  && abs(Jet_mcFlavour)==5 &&   Jet_pt>15 ";
+   TCut mycut = "Jet_mcPt>0  && Jet_mcPt<3000 && abs(Jet_mcFlavour)==5 &&  Jet_pt>15 && abs(Jet_eta)<2.5";
    // tell the factory to use all remaining events in the trees after training for testing:
    factory->PrepareTrainingAndTestTree( mycut, 
 		   "nTrain_Regression=0:nTest_Regression=0:SplitMode=Random:NormMode=NumEvents:!V" );
@@ -328,5 +341,5 @@ void TMVARegressionHbb(  )
    delete factory;
 
    // Launch the GUI for the root macros
-   if (!gROOT->IsBatch()) TMVARegGui( outfileName );
+       //   if (!gROOT->IsBatch()) TMVARegGui( outfileName );
 }
